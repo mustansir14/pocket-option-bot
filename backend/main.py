@@ -6,6 +6,9 @@ from pydantic import BaseModel
 from pocketoptionapi.stable_api import PocketOption
 import asyncio
 
+SYMBOL = "#AXP_otc"
+AMOUNT = 10
+
 app = FastAPI()
 
 # Allow all CORS
@@ -61,16 +64,16 @@ async def bot_worker(ssid: str, candles_to_check: int, timeframe: int):
         await asyncio.sleep(1)
     logger.info("Connected to the PocketOption API")
 
-    ASSET = "#AXP_otc"
     prev_data = None
 
     logger.info(f"Checking last {candles_to_check} candles...")
 
     while bot_running:
         data = None
+        
         counter = 0
         while data is None:
-            data = await api.get_candles(ASSET, timeframe, None, timeframe * candles_to_check)
+            data = await api.get_candles(SYMBOL, timeframe, None, timeframe * candles_to_check)
             if not bot_running:
                 break
             counter += 1
@@ -104,7 +107,7 @@ async def bot_worker(ssid: str, candles_to_check: int, timeframe: int):
             result = False
             counter = 0
             while not result:
-                result, _ = await api.buy(10, ASSET, action, 60)
+                result, _ = await api.buy(AMOUNT, SYMBOL, action, 60)
                 counter += 1
                 if counter == 10:
                     logger.error("Could not create order after multiple attempts")
