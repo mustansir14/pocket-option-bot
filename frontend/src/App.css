@@ -1,0 +1,85 @@
+body {
+  background-color: #f4f4f9;
+  font-family: 'Arial', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.App {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.container {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  width: 100%;
+}
+
+h1 {
+  font-size: 24px;
+  color: #333;
+  text-align: center;
+}
+
+.input-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 5px;
+}
+
+input[type="text"],
+input[type="number"] {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+button.btn {
+  width: 50%; /* Adjust this percentage to make the button smaller or larger */
+  padding: 12px;
+  font-size: 16px;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 10px auto; /* Center the button */
+  display: block; /* Ensures the button behaves like a block element, allowing margin auto to work */
+}
+
+button.start {
+  background-color: #007bff;
+}
+
+button.stop {
+  background-color: #dc3545;
+}
+
+h2 {
+  font-size: 20px;
+  color: #333;
+  margin-top: 20px;
+  text-align: center;
+}
+
+.log-box {
+  height: 200px;
+  overflow-y: scroll;
+  border: 1px solid #ccc;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
