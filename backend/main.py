@@ -8,6 +8,7 @@ import asyncio
 
 SYMBOL = "#AXP_otc"
 AMOUNT = 10
+EXPIRATION_SECONDS = 60
 
 app = FastAPI()
 
@@ -107,7 +108,7 @@ async def bot_worker(ssid: str, candles_to_check: int, timeframe: int):
             result = False
             counter = 0
             while not result:
-                result, _ = await api.buy(AMOUNT, SYMBOL, action, 60)
+                result, _ = await api.buy(AMOUNT, SYMBOL, action, EXPIRATION_SECONDS)
                 counter += 1
                 if counter == 10:
                     logger.error("Could not create order after multiple attempts")
