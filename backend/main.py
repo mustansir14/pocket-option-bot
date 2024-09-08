@@ -1,10 +1,9 @@
 import logging
-import queue
-from fastapi import FastAPI, WebSocket, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from pocketoptionapi.stable_api import PocketOption
 import asyncio
+from internal.bot import PocketOptionBot, FetchingCandlesMultipleAttemptsException, ExecutingOrderMultipleAttemptsException
 
 SYMBOL = "#AXP_otc"
 AMOUNT = 10
@@ -25,7 +24,6 @@ app.add_middleware(
 bot_running = False
 bot_task = None
 api = None
-log_queue = queue.Queue()
 
 # Configure the logger
 logger = logging.getLogger("bot_logger")
@@ -38,31 +36,18 @@ formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
-# Queue handler to capture logs for the WebSocket
-class QueueHandler(logging.Handler):
-    def __init__(self, log_queue):
-        super().__init__()
-        self.log_queue = log_queue
-
-    def emit(self, record):
-        self.log_queue.put(self.format(record))
-
-queue_handler = QueueHandler(log_queue)
-queue_handler.setFormatter(formatter)
-logger.addHandler(queue_handler)
-
 
 class BotConfig(BaseModel):
     ssid: str
     candles_to_check: int
     timeframe: int
 
+
 async def bot_worker(ssid: str, candles_to_check: int, timeframe: int):
     global api, bot_running
-    api = PocketOption(ssid)
-    api.connect()
-    while not api.check_connect():
-        await asyncio.sleep(1)
+
+    bot = PocketOptionBot()
+    await bot.connect(ssid)
     logger.info("Connected to the PocketOption API")
 
     prev_data = None
@@ -70,18 +55,10 @@ async def bot_worker(ssid: str, candles_to_check: int, timeframe: int):
     logger.info(f"Checking last {candles_to_check} candles...")
 
     while bot_running:
-        data = None
-        
-        counter = 0
-        while data is None:
-            data = await api.get_candles(SYMBOL, timeframe, None, timeframe * candles_to_check)
-            if not bot_running:
-                break
-            counter += 1
-            if counter == 5:
-                logger.error("Could not get candles after multiple attempts")
-                break
-        if counter == 5:
+        try:
+            data = await bot.fetch_candles(SYMBOL, timeframe, candles_to_check)
+        except FetchingCandlesMultipleAttemptsException:
+            logger.error("Could not get candles after multiple attempts")
             break
 
         if not bot_running:
@@ -104,21 +81,19 @@ async def bot_worker(ssid: str, candles_to_check: int, timeframe: int):
             action = ""
 
         if action:
-            logger.info(f'Creating order for {"buy" if action == "call" else "sell"}...')
-            result = False
-            counter = 0
-            while not result:
-                result, _ = await api.buy(AMOUNT, SYMBOL, action, EXPIRATION_SECONDS)
-                counter += 1
-                if counter == 10:
-                    logger.error("Could not create order after multiple attempts")
-                    break
-            if counter == 10:
+            logger.info(
+                f'Creating order for {"buy" if action == "call" else "sell"}...')
+            try:
+                await bot.execute_order(AMOUNT, SYMBOL, action, EXPIRATION_SECONDS)
+            except ExecutingOrderMultipleAttemptsException:
+                logger.error(
+                    "Could not create order after multiple attempts")
                 continue
 
             logger.info("Successfully created order")
 
         await asyncio.sleep(1)
+
 
 @app.post("/start-bot")
 async def start_bot(config: BotConfig, background_tasks: BackgroundTasks):
@@ -127,8 +102,10 @@ async def start_bot(config: BotConfig, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=400, detail="Bot is already running")
 
     bot_running = True
-    bot_task = background_tasks.add_task(bot_worker, config.ssid, config.candles_to_check, config.timeframe)
+    bot_task = background_tasks.add_task(
+        bot_worker, config.ssid, config.candles_to_check, config.timeframe)
     return {"status": "Bot started"}
+
 
 @app.post("/stop-bot")
 async def stop_bot():
