@@ -1,12 +1,14 @@
 """Module for PocketOption change symbol websocket chanel."""
 
-from pocketoptionapi.ws.channels.base import Base
-import time
 import random
+import time
+
+from pocketoptionapi.ws.channels.base import Base
 
 
 class ChangeSymbol(Base):
     """Class for Pocket option change symbol websocket chanel."""
+
     # pylint: disable=too-few-public-methods
 
     name = "sendMessage"
@@ -18,8 +20,6 @@ class ChangeSymbol(Base):
         :param interval: The candle duration (timeframe for the candles).
         """
 
-        data_stream = ["changeSymbol", {
-            "asset": active_id,
-            "period": interval}]
+        data_stream = ["changeSymbol", {"asset": active_id, "period": interval}]
 
         await self.send_websocket_request(self.name, data_stream)

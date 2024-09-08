@@ -1,13 +1,16 @@
 # Client.py made by © Vigo Walker
 
-import websockets
-import anyio
-from rich.pretty import pprint as print
 import json
+
+import anyio
+import websockets
+from rich.pretty import pprint as print
+
 
 class WebSocketClient:
     def __init__(self, session) -> None:
         self.SESSION = session
+
     async def websocket_client(self, url, pro):
         while True:
             try:
@@ -27,7 +30,6 @@ class WebSocketClient:
                 print("Connection lost... reconnecting")
                 await anyio.sleep(5)
         return True
-
 
     async def pro(self, message, websocket, url):
         # if byte data
@@ -54,7 +56,6 @@ class WebSocketClient:
             print(f"{url.split('/')[2]} got 40 sid send session")
             await websocket.send(self.SESSION)
             print("message sent! We are logged in!!!")
-
 
     async def main(self):
         url = "wss://api-l.po.market/socket.io/?EIO=4&transport=websocket"

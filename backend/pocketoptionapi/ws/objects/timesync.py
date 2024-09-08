@@ -1,7 +1,7 @@
 """Module for Pocket Option TimeSync websocket object."""
 
-import time
 import datetime
+import time
 
 from pocketoptionapi.ws.objects.base import Base
 
@@ -67,5 +67,3 @@ class TimeSync(Base):
         :returns: The expiration timestamp.
         """
         return time.mktime(self.expiration_datetime.timetuple())
-
-

@@ -1,17 +1,17 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
-
-import websockets
 import json
 import logging
 import ssl
+from datetime import datetime, timedelta, timezone
+
+import websockets
 
 # Suponiendo la existencia de estos módulos basados en tu código original
 import pocketoptionapi.constants as OP_code
 import pocketoptionapi.global_value as global_value
 from pocketoptionapi.constants import REGION
-from pocketoptionapi.ws.objects.timesync import TimeSync
 from pocketoptionapi.ws.objects.time_sync import TimeSynchronizer
+from pocketoptionapi.ws.objects.timesync import TimeSync
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +41,8 @@ async def process_message(message):
         print(f"Received message: {data}")
 
         # Procesa el mensaje dependiendo del tipo
-        if isinstance(data, dict) and 'uid' in data:
-            uid = data['uid']
+        if isinstance(data, dict) and "uid" in data:
+            uid = data["uid"]
             print(f"UID: {uid}")
         elif isinstance(data, list) and len(data) > 0:
             event_type = data[0]
@@ -102,13 +102,15 @@ class WebsocketClient(object):
                 print(url)
                 try:
                     async with websockets.connect(
-                            url,
-                            ssl=ssl_context,
-                            extra_headers={"Origin": "https://pocketoption.com", "Cache-Control": "no-cache"},
-                            user_agent_header="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, "
-                                              "like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                        url,
+                        ssl=ssl_context,
+                        extra_headers={
+                            "Origin": "https://pocketoption.com",
+                            "Cache-Control": "no-cache",
+                        },
+                        user_agent_header="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, "
+                        "like Gecko) Chrome/124.0.0.0 Safari/537.36",
                     ) as ws:
-
                         # print("Connected a: ", url)
                         self.websocket = ws
                         self.url = url
@@ -116,8 +118,12 @@ class WebsocketClient(object):
 
                         # Crear y ejecutar tareas
                         # process_message_task = asyncio.create_task(process_message(self.message))
-                        on_message_task = asyncio.create_task(self.websocket_listener(ws))
-                        sender_task = asyncio.create_task(self.send_message(self.message))
+                        on_message_task = asyncio.create_task(
+                            self.websocket_listener(ws)
+                        )
+                        sender_task = asyncio.create_task(
+                            self.send_message(self.message)
+                        )
                         ping_task = asyncio.create_task(send_ping(ws))
 
                         await asyncio.gather(on_message_task, sender_task, ping_task)
@@ -164,7 +170,9 @@ class WebsocketClient(object):
                     break
                 else:
                     # del mini key
-                    del dict[key1][key2][sorted(dict[key1][key2].keys(), reverse=False)[0]]
+                    del dict[key1][key2][
+                        sorted(dict[key1][key2].keys(), reverse=False)[0]
+                    ]
 
     async def on_message(self, message):  # pylint: disable=unused-argument
         """Method to process websocket messages."""
@@ -172,10 +180,9 @@ class WebsocketClient(object):
         logger.debug(message)
         # print(message)
 
-
         original_message = message
         if type(message) is bytes:
-            message = message.decode('utf-8')
+            message = message.decode("utf-8")
             message = json.loads(message)
 
             # print(message, type(message))
@@ -185,7 +192,10 @@ class WebsocketClient(object):
                 global_value.balance = message["balance"]
                 global_value.balance_type = message["isDemo"]
 
-            elif "requestId" in message and message["requestId"] == global_value.request_id:
+            elif (
+                "requestId" in message
+                and message["requestId"] == global_value.request_id
+            ):
                 global_value.request_id = None
                 global_value.order_data = message
 
@@ -214,7 +224,7 @@ class WebsocketClient(object):
 
         message = str(original_message)
 
-        if message.startswith('0') and "sid" in message:
+        if message.startswith("0") and "sid" in message:
             await self.websocket.send("40")
 
         elif message == "2":
@@ -223,8 +233,10 @@ class WebsocketClient(object):
         elif "40" and "sid" in message:
             await self.websocket.send(self.ssid)
 
-        elif message.startswith('451-['):
-            json_part = message.split("-", 1)[1]  # Eliminar el prefijo numérico y el guion para obtener el JSON válido
+        elif message.startswith("451-["):
+            json_part = message.split("-", 1)[
+                1
+            ]  # Eliminar el prefijo numérico y el guion para obtener el JSON válido
 
             # Convertir la parte JSON a un objeto Python
             message = json.loads(json_part)
@@ -241,12 +253,18 @@ class WebsocketClient(object):
             elif message[0] == "updateClosedDeals":
                 # Establecemos que hemos recibido el primer mensaje de interés
                 self._updateClosedDeals = True
-                self.wait_second_message = True  # Establecemos que esperamos el segundo mensaje de interés
-                await self.websocket.send('42["changeSymbol",{"asset":"AUDNZD_otc","period":60}]')
+                self.wait_second_message = (
+                    True  # Establecemos que esperamos el segundo mensaje de interés
+                )
+                await self.websocket.send(
+                    '42["changeSymbol",{"asset":"AUDNZD_otc","period":60}]'
+                )
 
             elif message[0] == "successcloseOrder":
                 self.successCloseOrder = True
-                self.wait_second_message = True  # Establecemos que esperamos el segundo mensaje de interés
+                self.wait_second_message = (
+                    True  # Establecemos que esperamos el segundo mensaje de interés
+                )
 
             elif message[0] == "loadHistoryPeriod":
                 self.history_data_ready = True

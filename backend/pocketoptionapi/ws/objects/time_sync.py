@@ -56,7 +56,9 @@ class TimeSynchronizer:
         # Redondear los segundos
         rounded_time_seconds = round(synced_time_seconds)
         # Convertir a datetime en UTC
-        synced_datetime_utc = datetime.fromtimestamp(rounded_time_seconds, tz=timezone.utc)
+        synced_datetime_utc = datetime.fromtimestamp(
+            rounded_time_seconds, tz=timezone.utc
+        )
         # Ajustar el tiempo sincronizado a la zona horaria local
         synced_datetime_local = synced_datetime_utc + self.timezone_offset
         return synced_datetime_local

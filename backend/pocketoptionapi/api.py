@@ -1,24 +1,34 @@
 """Module for Pocket Option API."""
 import asyncio
+import atexit
 import datetime
-import time
 import json
 import logging
-import threading
-import requests
 import ssl
-import atexit
-from collections import deque
-from pocketoptionapi.ws.client import WebsocketClient
-from pocketoptionapi.ws.channels.get_balances import *
+import threading
+import time
+from collections import defaultdict, deque
 
-from pocketoptionapi.ws.channels.ssid import Ssid
+import requests
+
+# from pocketoptionapi.ws.objects.listinfodata import ListInfoData
+# from pocketoptionapi.ws.objects.betinfo import Game_betinfo_data
+import pocketoptionapi.global_value as global_value
+# from pocketoptionapi.ws.channels.buyv2 import Buyv2
+from pocketoptionapi.ws.channels.buyv3 import *
 # from pocketoptionapi.ws.channels.subscribe import *
 # from pocketoptionapi.ws.channels.unsubscribe import *
 # from pocketoptionapi.ws.channels.setactives import SetActives
 from pocketoptionapi.ws.channels.candles import GetCandles
-# from pocketoptionapi.ws.channels.buyv2 import Buyv2
-from pocketoptionapi.ws.channels.buyv3 import *
+from pocketoptionapi.ws.channels.change_symbol import ChangeSymbol
+from pocketoptionapi.ws.channels.get_balances import *
+from pocketoptionapi.ws.channels.ssid import Ssid
+from pocketoptionapi.ws.client import WebsocketClient
+# from pocketoptionapi.ws.objects.profile import Profile
+from pocketoptionapi.ws.objects.candles import Candles
+from pocketoptionapi.ws.objects.time_sync import TimeSynchronizer
+from pocketoptionapi.ws.objects.timesync import TimeSync
+
 # from pocketoptionapi.ws.channels.user import *
 # from pocketoptionapi.ws.channels.api_game_betinfo import Game_betinfo
 # from pocketoptionapi.ws.channels.instruments import Get_instruments
@@ -45,15 +55,9 @@ from pocketoptionapi.ws.channels.buyv3 import *
 # from pocketoptionapi.ws.channels.change_tpsl import Change_Tpsl
 # from pocketoptionapi.ws.channels.change_auto_margin_call import ChangeAutoMarginCall
 
-from pocketoptionapi.ws.objects.timesync import TimeSync
-# from pocketoptionapi.ws.objects.profile import Profile
-from pocketoptionapi.ws.objects.candles import Candles
-# from pocketoptionapi.ws.objects.listinfodata import ListInfoData
-# from pocketoptionapi.ws.objects.betinfo import Game_betinfo_data
-import pocketoptionapi.global_value as global_value
-from pocketoptionapi.ws.channels.change_symbol import ChangeSymbol
-from collections import defaultdict
-from pocketoptionapi.ws.objects.time_sync import TimeSynchronizer
+
+
+
 
 def nested_dict(n, type):
     if n == 1:
@@ -168,7 +172,9 @@ class PocketOptionAPI(object):  # pylint: disable=too-many-instance-attributes
         """
         return self.websocket_client
 
-    async def send_websocket_request(self, name, msg, request_id="", no_force_send=True):
+    async def send_websocket_request(
+        self, name, msg, request_id="", no_force_send=True
+    ):
         """Send websocket request to IQ Option server.
 
         :param no_force_send:
@@ -180,9 +186,11 @@ class PocketOptionAPI(object):  # pylint: disable=too-many-instance-attributes
         logger = logging.getLogger(__name__)
 
         # data = json.dumps(dict(name=name, msg=msg, request_id=request_id))
-        data = f'42{json.dumps(msg)}'
+        data = f"42{json.dumps(msg)}"
 
-        while (global_value.ssl_Mutual_exclusion or global_value.ssl_Mutual_exclusion_write) and no_force_send:
+        while (
+            global_value.ssl_Mutual_exclusion or global_value.ssl_Mutual_exclusion_write
+        ) and no_force_send:
             pass
         global_value.ssl_Mutual_exclusion_write = True
 

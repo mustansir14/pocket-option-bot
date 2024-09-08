@@ -1,8 +1,9 @@
 """Module for Pocket option candles websocket chanel."""
 
-from pocketoptionapi.ws.channels.base import Base
-import time
 import random
+import time
+
+from pocketoptionapi.ws.channels.base import Base
 
 
 def index_num():
@@ -16,6 +17,7 @@ def index_num():
 
 class GetCandles(Base):
     """Class for Pocket option candles websocket chanel."""
+
     # pylint: disable=too-few-public-methods
 
     name = "sendMessage"

@@ -1,15 +1,18 @@
 # Made by © Vigo Walker
-from pocketoptionapi.backend.ws.client import WebSocketClient
-from pocketoptionapi.backend.ws.chat import WebSocketClientChat
-import threading
-import ssl
 import decimal
 import json
-import urllib
-import websocket
 import logging
+import ssl
+import threading
+import urllib
+
 import pause
+import websocket
 from websocket._exceptions import WebSocketException
+
+from pocketoptionapi.backend.ws.chat import WebSocketClientChat
+from pocketoptionapi.backend.ws.client import WebSocketClient
+
 
 class PocketOptionApi:
     def __init__(self, init_msg) -> None:
@@ -20,32 +23,40 @@ class PocketOptionApi:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
         self.init_msg = init_msg
-        formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+        formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
 
         self.websocket_client = WebSocketClient(self.ws_url, pocket_api_instance=self)
 
         # Create file handler and add it to the logger
-        file_handler = logging.FileHandler('pocket.log')
+        file_handler = logging.FileHandler("pocket.log")
         file_handler.setFormatter(formatter)
         self.logger.addHandler(file_handler)
 
         self.logger.info(f"initialiting Pocket API with token: {self.token}")
 
-        self.websocket_client_chat = WebSocketClientChat(url="wss://chat-po.site/cabinet-client/socket.io/?EIO=4&transport=websocket")
+        self.websocket_client_chat = WebSocketClientChat(
+            url="wss://chat-po.site/cabinet-client/socket.io/?EIO=4&transport=websocket"
+        )
         self.websocket_client_chat.run()
 
         self.logger.info("Send chat websocket")
 
         self.websocket_client.ws.run_forever()
+
     def auto_ping(self):
         self.logger.info("Starting auto ping thread")
         pause.seconds(5)
         while True:
             try:
-                if self.websocket_client.ws.sock and self.websocket_client.ws.sock.connected:  # Check if socket is connected
+                if (
+                    self.websocket_client.ws.sock
+                    and self.websocket_client.ws.sock.connected
+                ):  # Check if socket is connected
                     self.ping()
                 else:
-                    self.logger.warning("WebSocket is not connected. Attempting to reconnect.")
+                    self.logger.warning(
+                        "WebSocket is not connected. Attempting to reconnect."
+                    )
                     # Attempt reconnection
                     if self.connect():
                         self.logger.info("Successfully reconnected.")
@@ -57,7 +68,9 @@ class PocketOptionApi:
                     except Exception as e:
                         self.logger.error(f"A error ocured trying to send ping: {e}")
             except Exception as e:  # Catch exceptions and log them
-                self.logger.error(f"An error occurred while sending ping or attempting to reconnect: {e}")
+                self.logger.error(
+                    f"An error occurred while sending ping or attempting to reconnect: {e}"
+                )
                 try:
                     self.logger.warning("Trying again...")
                     v1 = self.connect()
@@ -76,17 +89,20 @@ class PocketOptionApi:
         data = r"""42["user_init",{"id":27658142,"secret":"8ed9be7299c3aa6363e57ae5a4e52b7a"}]"""
         self.websocket_client_chat.ws.send(data)
         try:
-            self.websocket_thread = threading.Thread(target=self.websocket_client.ws.run_forever, kwargs={
-                'sslopt': {
-                    "check_hostname": False,
-                    "cert_reqs": ssl.CERT_NONE,
-                    "ca_certs": "cacert.pem"
+            self.websocket_thread = threading.Thread(
+                target=self.websocket_client.ws.run_forever,
+                kwargs={
+                    "sslopt": {
+                        "check_hostname": False,
+                        "cert_reqs": ssl.CERT_NONE,
+                        "ca_certs": "cacert.pem",
+                    },
+                    "ping_interval": 0,
+                    "skip_utf8_validation": True,
+                    "origin": "https://pocketoption.com",
+                    # "http_proxy_host": '127.0.0.1', "http_proxy_port": 8890
                 },
-                "ping_interval": 0,
-                'skip_utf8_validation': True,
-                "origin": "https://pocketoption.com",
-                # "http_proxy_host": '127.0.0.1', "http_proxy_port": 8890
-            })
+            )
 
             self.websocket_thread.daemon = True
             self.websocket_thread.start()
@@ -98,11 +114,13 @@ class PocketOptionApi:
         except Exception as e:
             print(f"Going for exception.... error: {e}")
             self.logger.error(f"Connection failed with exception: {e}")
+
     def send_websocket_request(self, msg):
         """Send websocket request to PocketOption server.
         :param dict msg: The websocket request msg.
         """
         self.logger.info(f"Sending websocket request: {msg}")
+
         def default(obj):
             if isinstance(obj, decimal.Decimal):
                 return str(obj)
@@ -112,30 +130,39 @@ class PocketOptionApi:
 
         try:
             self.logger.info("Request sent successfully.")
-            self.websocket_client.ws.send(bytearray(urllib.parse.quote(data).encode('utf-8')), opcode=websocket.ABNF.OPCODE_BINARY)
+            self.websocket_client.ws.send(
+                bytearray(urllib.parse.quote(data).encode("utf-8")),
+                opcode=websocket.ABNF.OPCODE_BINARY,
+            )
             return True
         except Exception as e:
             self.logger.error(f"Failed to send request with exception: {e}")
             # Consider adding any necessary exception handling code here
             try:
-                self.websocket_client.ws.send(bytearray(urllib.parse.quote(data).encode('utf-8')), opcode=websocket.ABNF.OPCODE_BINARY)
+                self.websocket_client.ws.send(
+                    bytearray(urllib.parse.quote(data).encode("utf-8")),
+                    opcode=websocket.ABNF.OPCODE_BINARY,
+                )
             except Exception as e:
                 self.logger.warning(f"Was not able to reconnect: {e}")
-    
+
     def _login(self, init_msg):
         self.logger.info("Trying to login...")
 
-        self.websocket_thread = threading.Thread(target=self.websocket_client.ws.run_forever, kwargs={
-                'sslopt': {
+        self.websocket_thread = threading.Thread(
+            target=self.websocket_client.ws.run_forever,
+            kwargs={
+                "sslopt": {
                     "check_hostname": False,
                     "cert_reqs": ssl.CERT_NONE,
-                    "ca_certs": "cacert.pem"
+                    "ca_certs": "cacert.pem",
                 },
                 "ping_interval": 0,
-                'skip_utf8_validation': True,
+                "skip_utf8_validation": True,
                 "origin": "https://pocketoption.com",
                 # "http_proxy_host": '127.0.0.1', "http_proxy_port": 8890
-            })
+            },
+        )
 
         self.websocket_thread.daemon = True
         self.websocket_thread.start()
@@ -145,7 +172,9 @@ class PocketOptionApi:
         # self.send_websocket_request(msg=init_msg)
         self.websocket_client.ws.send(init_msg)
 
-        self.logger.info(f"Message was sent successfully to log you in!, mesage: {init_msg}")
+        self.logger.info(
+            f"Message was sent successfully to log you in!, mesage: {init_msg}"
+        )
 
         try:
             self.websocket_client.ws.run_forever()

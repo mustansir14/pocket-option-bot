@@ -1,17 +1,17 @@
 import datetime
 import json
-import time
-from pocketoptionapi.ws.chanels.base import Base
 import logging
+import time
+
 import pocketoptionapi.global_value as global_value
 from pocketoptionapi.expiration import get_expiration_time
+from pocketoptionapi.ws.chanels.base import Base
 
 
 class Buyv3(Base):
     name = "sendMessage"
 
     async def __call__(self, amount, active, direction, duration, request_id):
-
         # thank Darth-Carrotpie's code
         # https://github.com/Lu-Yi-Hsun/iqoptionapi/issues/6
         exp = get_expiration_time(int(self.api.timesync.server_timestamps), duration)
@@ -27,7 +27,7 @@ class Buyv3(Base):
             "isDemo": 1,
             "requestId": request_id,
             "optionType": 100,
-            "time": duration
+            "time": duration,
         }
 
         message = ["openOrder", data_dict]
@@ -39,7 +39,6 @@ class Buyv3_by_raw_expired(Base):
     name = "sendMessage"
 
     async def __call__(self, price, active, direction, option, expired, request_id):
-
         # thank Darth-Carrotpie's code
         # https://github.com/Lu-Yi-Hsun/iqoptionapi/issues/6
 
@@ -48,14 +47,15 @@ class Buyv3_by_raw_expired(Base):
         elif option == "binary":
             option_id = 1  # "binary"
         data = {
-            "body": {"price": price,
-                     "active_id": active,
-                     "expired": int(expired),
-                     "direction": direction.lower(),
-                     "option_type_id": option_id,
-                     "user_balance_id": int(global_value.balance_id)
-                     },
+            "body": {
+                "price": price,
+                "active_id": active,
+                "expired": int(expired),
+                "direction": direction.lower(),
+                "option_type_id": option_id,
+                "user_balance_id": int(global_value.balance_id),
+            },
             "name": "binary-options.open-option",
-            "version": "1.0"
+            "version": "1.0",
         }
         await self.send_websocket_request(self.name, data, str(request_id))

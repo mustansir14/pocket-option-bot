@@ -5,6 +5,7 @@ from pocketoptionapi.ws.chanels.base import Base
 
 class Ssid(Base):
     """Class for Pocket Option API ssid websocket chanel."""
+
     # pylint: disable=too-few-public-methods
 
     name = "ssid"

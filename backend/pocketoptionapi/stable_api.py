@@ -1,22 +1,21 @@
 # This is a sample Python script.
 import asyncio
+import logging
+import operator
+import random
 import threading
-
-from tzlocal import get_localzone
-
-from pocketoptionapi.api import PocketOptionAPI
-import pocketoptionapi.constants as OP_code
 # import pocketoptionapi.country_id as Country
 # import threading
 import time
-import logging
-import operator
-import pocketoptionapi.global_value as global_value
-from collections import defaultdict
-from collections import deque
+from collections import defaultdict, deque
+
 # from pocketoptionapi.expiration import get_expiration_time, get_remaning_time
 import pandas as pd
-import random
+from tzlocal import get_localzone
+
+import pocketoptionapi.constants as OP_code
+import pocketoptionapi.global_value as global_value
+from pocketoptionapi.api import PocketOptionAPI
 
 # Obtener la zona horaria local del sistema como una cadena en el formato IANA
 local_zone_name = get_localzone()
@@ -38,8 +37,27 @@ class PocketOption:
     __version__ = "1.0.0"
 
     def __init__(self, ssid):
-        self.size = [1, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800,
-                     3600, 7200, 14400, 28800, 43200, 86400, 604800, 2592000]
+        self.size = [
+            1,
+            5,
+            10,
+            15,
+            30,
+            60,
+            120,
+            300,
+            600,
+            900,
+            1800,
+            3600,
+            7200,
+            14400,
+            28800,
+            43200,
+            86400,
+            604800,
+            2592000,
+        ]
         global_value.SSID = ssid
         self.suspend = 0.5
         self.thread = None
@@ -52,7 +70,8 @@ class PocketOption:
         self.get_realtime_strike_list_temp_expiration = 0
         self.SESSION_HEADER = {
             "User-Agent": r"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                          r"Chrome/66.0.3359.139 Safari/537.36"}
+            r"Chrome/66.0.3359.139 Safari/537.36"
+        }
         self.SESSION_COOKIE = {}
         self.api = PocketOptionAPI()
         self.loop = asyncio.get_event_loop()
@@ -98,7 +117,9 @@ class PocketOption:
         """
         try:
             # Iniciar el hilo que manejará la conexión WebSocket
-            websocket_thread = threading.Thread(target=self.api.connect, daemon=True, args=(self.is_demo,))
+            websocket_thread = threading.Thread(
+                target=self.api.connect, daemon=True, args=(self.is_demo,)
+            )
             websocket_thread.start()
 
         except Exception as e:
@@ -144,17 +165,25 @@ class PocketOption:
         global_value.result = None
         global_value.request_id = random.randint(10000000, 30000000)
 
-        await self.api.buyv3(amount, active, action, expirations, global_value.request_id, self.is_demo)
+        await self.api.buyv3(
+            amount, active, action, expirations, global_value.request_id, self.is_demo
+        )
 
         start_t = time.time()
         while True:
             if global_value.result is not None and global_value.order_data is not None:
                 break
             if time.time() - start_t >= 5:
-                if isinstance(global_value.order_data, dict) and "error" in global_value.order_data:
+                if (
+                    isinstance(global_value.order_data, dict)
+                    and "error" in global_value.order_data
+                ):
                     logging.error(global_value.order_data["error"])
                 else:
-                    logging.error("Unknown error occurred during buy operation " + str(global_value.websocket_error_reason))
+                    logging.error(
+                        "Unknown error occurred during buy operation "
+                        + str(global_value.websocket_error_reason)
+                    )
                 return False, None
             await asyncio.sleep(0.1)  # Sleep for a short period to prevent busy-waiting
 
@@ -196,7 +225,9 @@ class PocketOption:
         timestamp_redondeado = (timestamp // period) * period
         return int(timestamp_redondeado)
 
-    async def get_candles(self, active, period, start_time=None, count=6000, count_request=1):
+    async def get_candles(
+        self, active, period, start_time=None, count=6000, count_request=1
+    ):
         """
         Realiza múltiples peticiones para obtener datos históricos de velas y los procesa.
         Devuelve un Dataframe ordenado de menor a mayor por la columna 'time'.
@@ -238,7 +269,7 @@ class PocketOption:
 
                 # except Exception as e:
                 #     logging.error(e)
-                    # Puedes agregar lógica de reconexión aquí si es necesario
+                # Puedes agregar lógica de reconexión aquí si es necesario
 
             # Ordenar all_candles por 'index' para asegurar que estén en el orden correcto
             all_candles = sorted(all_candles, key=lambda x: x["time"])
@@ -252,13 +283,13 @@ class PocketOption:
         df_candles = pd.DataFrame(all_candles)
 
         # Ordenar por la columna 'time' de menor a mayor
-        df_candles = df_candles.sort_values(by='time').reset_index(drop=True)
-        df_candles['time'] = pd.to_datetime(df_candles['time'], unit='s')
-        df_candles.set_index('time', inplace=True)
-        df_candles.index = df_candles.index.floor('1s')
+        df_candles = df_candles.sort_values(by="time").reset_index(drop=True)
+        df_candles["time"] = pd.to_datetime(df_candles["time"], unit="s")
+        df_candles.set_index("time", inplace=True)
+        df_candles.index = df_candles.index.floor("1s")
 
         # Resamplear los datos en intervalos de 30 segundos y calcular open, high, low, close
-        df_resampled = df_candles['price'].resample(f'{period}s').ohlc()
+        df_resampled = df_candles["price"].resample(f"{period}s").ohlc()
 
         # Resetear el índice para que 'time' vuelva a ser una columna
         df_resampled.reset_index(inplace=True)
@@ -277,26 +308,30 @@ class PocketOption:
         :return: Un diccionario que contiene los valores OHLC agrupados por minutos redondeados.
         """
         # Crear DataFrame
-        df = pd.DataFrame(data['history'], columns=['timestamp', 'price'])
+        df = pd.DataFrame(data["history"], columns=["timestamp", "price"])
         # Convertir a datetime y redondear al minuto
-        df['datetime'] = pd.to_datetime(df['timestamp'], unit='s', utc=True)
+        df["datetime"] = pd.to_datetime(df["timestamp"], unit="s", utc=True)
         # df['datetime'] = df['datetime'].dt.tz_convert(str(local_zone_name))
-        df['minute_rounded'] = df['datetime'].dt.floor(f'{period / 60}min')
+        df["minute_rounded"] = df["datetime"].dt.floor(f"{period / 60}min")
 
         # Calcular OHLC
-        ohlcv = df.groupby('minute_rounded').agg(
-            open=('price', 'first'),
-            high=('price', 'max'),
-            low=('price', 'min'),
-            close=('price', 'last')
-        ).reset_index()
+        ohlcv = (
+            df.groupby("minute_rounded")
+            .agg(
+                open=("price", "first"),
+                high=("price", "max"),
+                low=("price", "min"),
+                close=("price", "last"),
+            )
+            .reset_index()
+        )
 
-        ohlcv['time'] = ohlcv['minute_rounded'].apply(lambda x: int(x.timestamp()))
-        ohlcv = ohlcv.drop(columns='minute_rounded')
+        ohlcv["time"] = ohlcv["minute_rounded"].apply(lambda x: int(x.timestamp()))
+        ohlcv = ohlcv.drop(columns="minute_rounded")
 
         ohlcv = ohlcv.iloc[:-1]
 
-        ohlcv_dict = ohlcv.to_dict(orient='records')
+        ohlcv_dict = ohlcv.to_dict(orient="records")
 
         return ohlcv_dict
 
@@ -322,13 +357,13 @@ class PocketOption:
         data_df = pd.DataFrame(candle_data)
         # datos_completos = pd.concat([datos_completos, data_df], ignore_index=True)
         # Procesa los datos obtenidos
-        data_df.sort_values(by='time', ascending=True, inplace=True)
-        data_df.drop_duplicates(subset='time', keep="first", inplace=True)
+        data_df.sort_values(by="time", ascending=True, inplace=True)
+        data_df.drop_duplicates(subset="time", keep="first", inplace=True)
         data_df.reset_index(drop=True, inplace=True)
         data_df.ffill(inplace=True)
-        data_df.drop(columns='symbol_id', inplace=True)
+        data_df.drop(columns="symbol_id", inplace=True)
         # Verificación opcional: Comprueba si las diferencias son todas de 60 segundos (excepto el primer valor NaN)
-        diferencias = data_df['time'].diff()
+        diferencias = data_df["time"].diff()
         diff = (diferencias[1:] == period).all()
         return data_df, diff
 
