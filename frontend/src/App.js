@@ -4,16 +4,30 @@ import "./App.css"; // Importing the CSS file
 
 const TRADING_STRATEGIES = [
   {
+    name: "Moving Average",
+    value: "MOVING_AVERAGE",
+  },
+  {
     name: "Last X Candles",
     value: "LAST_X_CANDLES",
   },
+];
+
+const ORDER_ACTIONS = [
   {
-    name: "Moving Average",
-    value: "MOVING_AVERAGE",
+    name: "Telegram Signal",
+    value: "TELEGRAM_SIGNAL",
+  },
+  {
+    name: "Order Execution",
+    value: "ORDER_EXECUTION",
   },
 ];
 
 function App() {
+  const [orderAction, setOrderAction] = useState(
+    ORDER_ACTIONS[0].value
+  );
   const [tradingStrategy, setTradingStrategy] = useState(
     TRADING_STRATEGIES[0].value
   );
@@ -48,6 +62,7 @@ function App() {
         trading_strategy: tradingStrategy,
         fast_period: fastPeriod,
         slow_period: slowPeriod,
+        order_action: orderAction,
       });
       console.log(response.data);
       setBotRunning(true);
@@ -86,6 +101,20 @@ function App() {
     <div className="App">
       <div className="container">
         <h1>Pocket Option Bot</h1>
+        <div className="input-group">
+          <label>
+            Order Action
+            <select
+              value={orderAction}
+              onChange={(e) => setOrderAction(e.target.value)}
+              disabled={botRunning}
+            >
+              {ORDER_ACTIONS.map((ts) => (
+                <option value={ts.value}>{ts.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="input-group">
           <label>
             Trading Strategy:

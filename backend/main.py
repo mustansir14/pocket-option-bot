@@ -10,30 +10,31 @@ from pydantic import BaseModel, root_validator
 from internal.bot import (ExecutingOrderMultipleAttemptsException,
                           FetchingCandlesMultipleAttemptsException,
                           PocketOptionBot)
+from internal.env import Env
+from internal.order_actions import IOrderAction, OrderActionEnum
+from internal.order_actions.telegram_signal_action import TelegramSignalAction
 from internal.trading_strategies import ITradingStrategy, TradingStrategyEnum
 from internal.trading_strategies.last_x_candles import \
     LastXCandlesTradingStrategy
 from internal.trading_strategies.moving_average import \
     MovingAverageTradingStrategy
 
-SYMBOLS = [
-    "#AAPL_otc",
-    "#AXP_otc",
-    "#BA_otc",
-    "#CSCO_otc",
-    "#FB_otc",
-    "#INTC_otc",
-    "#JNJ_otc",
-    "#MCD_otc",
-    "#MSFT_otc",
-    "#PFE_otc",
-    "#TSLA_otc",
-    "#XOM_otc",
-    "100GBP_otc",
-    "AMZN_otc",
-    "AUDCAD_otc"
-    # 'EURUSD_otc' # you can comment out symbols to exclude them
-]
+# symbols and their payouts
+SYMBOLS = {
+    "#AAPL_otc": 92,
+    "#AXP_otc": 50,
+    "#BA_otc": 88,
+    "#CSCO_otc": 79,
+    "#INTC_otc": 56,
+    "#JNJ_otc": 64,
+    "#MCD_otc": 75,
+    "#PFE_otc": 20,
+    "#TSLA_otc": 92,
+    "#XOM_otc": 42,
+    "100GBP_otc": 45,
+    "AUDCAD_otc": 75,
+    # 'EURUSD_otc': 90 # you can comment out symbols to exclude them
+}
 AMOUNT = 10
 EXPIRATION_SECONDS = 60
 
@@ -67,6 +68,7 @@ logger.addHandler(console_handler)
 
 class BotConfig(BaseModel):
     ssid: str
+    order_action: OrderActionEnum
     trading_strategy: TradingStrategyEnum
     candles_to_check: Optional[int] = None
     fast_period: Optional[int] = None
@@ -93,8 +95,7 @@ class BotConfig(BaseModel):
                     "Both fast_period and slow_period are required for MOVING_AVERAGE strategy."
                 )
             if fast_period >= slow_period:
-                raise ValueError(
-                    "fast_period should be less than slow_period.")
+                raise ValueError("fast_period should be less than slow_period.")
 
         return values
 
@@ -103,19 +104,31 @@ mutex = asyncio.Lock()
 
 
 async def main_bot_worker(
-    ssid: str, candles_to_check: int, timeframe: int, trading_strategy: ITradingStrategy
+    ssid: str,
+    candles_to_check: int,
+    timeframe: int,
+    trading_strategy: ITradingStrategy,
+    order_action: OrderActionEnum,
 ):
     global bot, bot_running
 
-    bot = PocketOptionBot()
+    bot = PocketOptionBot(AMOUNT, timeframe)
     await bot.connect(ssid)
     logger.info("Connected to the PocketOption API")
 
+    if order_action == OrderActionEnum.EXECUTE_ORDER:
+        order_action_obj = bot
+    elif order_action == OrderActionEnum.TELEGRAM_SIGNAL:
+        order_action_obj = TelegramSignalAction(
+            Env.TELEGRAM_BOT_TOKEN, Env.TELEGRAM_CHAT_ID, bot
+        )
+
     tasks = []
-    for symbol in SYMBOLS:
+    for symbol, payout in SYMBOLS.items():
         task = asyncio.create_task(
-            child_bot_worker(symbol, candles_to_check,
-                             timeframe, trading_strategy)
+            child_bot_worker(
+                symbol, payout, candles_to_check, trading_strategy, order_action_obj
+            )
         )
         tasks.append(task)
 
@@ -124,9 +137,10 @@ async def main_bot_worker(
 
 async def child_bot_worker(
     symbol: str,
+    payout: int,
     candles_to_check: int,
-    timeframe: int,
     trading_strategy: ITradingStrategy,
+    order_action: IOrderAction,
 ):
     global bot
 
@@ -139,10 +153,9 @@ async def child_bot_worker(
             # use mutex lock so one worker accesses the API at a time
             async with mutex:
                 await asyncio.sleep(1)
-                data = await bot.fetch_candles(symbol, timeframe, candles_to_check)
+                data = await bot.fetch_candles(symbol, candles_to_check)
         except FetchingCandlesMultipleAttemptsException:
-            logger.error(
-                f"[{symbol}] Could not get candles after multiple attempts")
+            logger.error(f"[{symbol}] Could not get candles after multiple attempts")
             async with mutex:
                 await bot.connect(bot.ssid)
             continue
@@ -165,19 +178,21 @@ async def child_bot_worker(
 
         if action:
             logger.info(
-                f'[{symbol}] Creating order for {"buy" if action == "call" else "sell"}...'
+                f'[{symbol}] Executing order action for {"buy" if action == "call" else "sell"}...'
             )
             try:
                 # use mutex lock so one worker accesses the API at a time
                 async with mutex:
-                    await bot.execute_order(AMOUNT, symbol, action, EXPIRATION_SECONDS)
+                    await order_action.execute(
+                        symbol, action, EXPIRATION_SECONDS, payout
+                    )
             except ExecutingOrderMultipleAttemptsException:
                 logger.error(
-                    f"[{symbol}] Could not create order after multiple attempts"
+                    f"[{symbol}] Could not execute order action after multiple attempts"
                 )
                 continue
 
-            logger.info(f"[{symbol}] Successfully created order")
+            logger.info(f"[{symbol}] Successfully executed order action")
 
         await asyncio.sleep(1)
 
@@ -203,6 +218,7 @@ async def start_bot(config: BotConfig, background_tasks: BackgroundTasks):
         config.candles_to_check,
         config.timeframe,
         trading_strategy_class,
+        config.order_action,
     )
     return {"status": "Bot started"}
 
