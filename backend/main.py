@@ -53,6 +53,7 @@ app.add_middleware(
 bot: PocketOptionBot = None
 bot_running = False
 bot_task = None
+in_trade_cooldown_period = False
 
 # Configure the logger
 logger = logging.getLogger("bot_logger")
@@ -100,7 +101,8 @@ class BotConfig(BaseModel):
         return values
 
 
-mutex = asyncio.Lock()
+rmutex = asyncio.Lock()
+wmutex = asyncio.Lock()
 
 
 async def main_bot_worker(
@@ -112,7 +114,7 @@ async def main_bot_worker(
 ):
     global bot, bot_running
 
-    bot = PocketOptionBot(AMOUNT, timeframe)
+    bot = PocketOptionBot(AMOUNT)
     await bot.connect(ssid)
     logger.info("Connected to the PocketOption API")
 
@@ -127,7 +129,7 @@ async def main_bot_worker(
     for symbol, payout in SYMBOLS.items():
         task = asyncio.create_task(
             child_bot_worker(
-                symbol, payout, candles_to_check, trading_strategy, order_action_obj
+                symbol, payout, candles_to_check, timeframe, trading_strategy, order_action_obj
             )
         )
         tasks.append(task)
@@ -139,10 +141,11 @@ async def child_bot_worker(
     symbol: str,
     payout: int,
     candles_to_check: int,
+    timeframe: int,
     trading_strategy: ITradingStrategy,
     order_action: IOrderAction,
 ):
-    global bot
+    global bot, in_trade_cooldown_period, bot_running
 
     prev_data = None
 
@@ -151,12 +154,12 @@ async def child_bot_worker(
     while bot_running:
         try:
             # use mutex lock so one worker accesses the API at a time
-            async with mutex:
-                await asyncio.sleep(1)
-                data = await bot.fetch_candles(symbol, candles_to_check)
+            await asyncio.sleep(1)
+            async with rmutex:
+                data = await bot.fetch_candles(symbol, candles_to_check, timeframe)
         except FetchingCandlesMultipleAttemptsException:
             logger.error(f"[{symbol}] Could not get candles after multiple attempts")
-            async with mutex:
+            async with rmutex:
                 await bot.connect(bot.ssid)
             continue
 
@@ -182,20 +185,32 @@ async def child_bot_worker(
             )
             try:
                 # use mutex lock so one worker accesses the API at a time
-                async with mutex:
-                    await order_action.execute(
-                        symbol, action, EXPIRATION_SECONDS, payout
-                    )
+                async with wmutex:
+                    if not in_trade_cooldown_period:
+                        await order_action.execute(
+                            symbol, action, EXPIRATION_SECONDS, payout
+                        )
+                        in_trade_cooldown_period = True
+                        asyncio.create_task(
+                            reset_trade_cooldown()
+                        )
+                        logger.info(f"[{symbol}] Successfully executed order action")
+                    else:
+                        logger.info(
+                            f"[{symbol}] In trade cooldown period, skipping order execution"
+                        )
             except ExecutingOrderMultipleAttemptsException:
                 logger.error(
                     f"[{symbol}] Could not execute order action after multiple attempts"
                 )
-                continue
-
-            logger.info(f"[{symbol}] Successfully executed order action")
-
         await asyncio.sleep(1)
 
+async def reset_trade_cooldown():
+    global in_trade_cooldown_period
+    logger.info("Starting trade cooldown period")
+    await asyncio.sleep(EXPIRATION_SECONDS)  # Cooldown period of expiration seconds
+    in_trade_cooldown_period = False
+    logger.info("Trade cooldown period ended")
 
 @app.post("/start-bot")
 async def start_bot(config: BotConfig, background_tasks: BackgroundTasks):

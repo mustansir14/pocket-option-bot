@@ -51,7 +51,7 @@ class TelegramSignalAction(IOrderAction):
         reply_message_id: int = None,
     ) -> None:
         await asyncio.sleep(expiration_seconds)
-        data = await self.pocketoption_bot.fetch_candles(symbol, 2)
+        data = await self.pocketoption_bot.fetch_candles(symbol, 2, expiration_seconds_to_timeframe(expiration_seconds))
         is_profit = False
         if action == "call":
             if data["close"].iloc[-1] > data["open"].iloc[-1]:
@@ -100,3 +100,24 @@ def seconds_to_formatted_time(seconds: int) -> str:
         return f"{minutes} {minutes_str}"
     else:
         return f"{sec} {seconds_str}"
+    
+TIMEFRAMES = {
+    60,
+    300,
+    900,
+    1800,
+    3600,
+    14400,
+    86400,
+    604800,
+}
+
+def expiration_seconds_to_timeframe(expiration_seconds: int) -> int:
+    if expiration_seconds in TIMEFRAMES:
+        return expiration_seconds
+    # Find the closest higher timeframe
+    higher_timeframes = [tf for tf in TIMEFRAMES if tf >= expiration_seconds]
+    if higher_timeframes:
+        return min(higher_timeframes)
+    # If no higher timeframe, return the maximum available
+    return max(TIMEFRAMES)

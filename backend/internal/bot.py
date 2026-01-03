@@ -8,10 +8,9 @@ from pocketoptionapi_async.client import AsyncPocketOptionClient, Candle
 
 
 class PocketOptionBot(IOrderAction):
-    def __init__(self, order_amount: float = 1.0, timeframe: int = 30) -> None:
+    def __init__(self, order_amount: float = 1.0) -> None:
         self.order_amount = order_amount
         self.asset_payouts = {}
-        self.timeframe = timeframe
 
     async def connect(self, ssid: str) -> None:
         self.ssid = ssid
@@ -20,11 +19,11 @@ class PocketOptionBot(IOrderAction):
         while not await self.api.connect():
             await asyncio.sleep(1)
 
-    async def fetch_candles(self, symbol: str, candles_to_check: int) -> pd.DataFrame:
+    async def fetch_candles(self, symbol: str, candles_to_check: int, timeframe: int) -> pd.DataFrame:
         counter = 0
         data = None
         while data is None:
-            data = await self.api.get_candles(symbol, self.timeframe, candles_to_check)
+            data = await self.api.get_candles(symbol, timeframe, candles_to_check)
             counter += 1
             if counter == 3:
                 raise FetchingCandlesMultipleAttemptsException("Error fetching candles")
