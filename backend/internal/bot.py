@@ -27,24 +27,27 @@ class PocketOptionBot(IOrderAction):
             counter += 1
             if counter == 3:
                 raise FetchingCandlesMultipleAttemptsException("Error fetching candles")
-        data = candles_to_dataframe(data)
-        return data
+        return candles_to_dataframe(data)
 
     async def execute(
-        self, symbol: str, action: str, expiration_seconds: int, profit_rate: int
+        self, symbol: str, action: str, timeframe: int, profit_rate: int
     ) -> None:
         result = False
         counter = 0
         while not result:
             result, _ = await self.api.place_order(
-                symbol, self.order_amount, action, expiration_seconds
+                symbol, self.order_amount, action, timeframe
             )
             counter += 1
             if counter == 10:
                 raise ExecutingOrderMultipleAttemptsException("Error executing orders")
+            
+    async def process_result(self, symbol: str, profit: bool) -> None:
+        return
 
 
 def candles_to_dataframe(candles: List[Candle]) -> pd.DataFrame:
+    candles.sort(key=lambda x: x.timestamp)
     data = {
         "time": [candle.timestamp for candle in candles],
         "open": [candle.open for candle in candles],
@@ -54,7 +57,6 @@ def candles_to_dataframe(candles: List[Candle]) -> pd.DataFrame:
         "volume": [candle.volume for candle in candles],
     }
     return pd.DataFrame(data)
-
 
 class BasePocketOptionBotException(Exception):
     """Base Exception class for PocketOptionBot Exceptions"""

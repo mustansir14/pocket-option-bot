@@ -1,24 +1,28 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from telegram import Bot
 
 from internal.bot import PocketOptionBot
 from internal.order_actions import IOrderAction
+import logging
+
 
 
 class TelegramSignalAction(IOrderAction):
     def __init__(
-        self, token: str, chat_id: str, pocketoption_bot: PocketOptionBot
+        self, token: str, chat_id: str, pocketoption_bot: PocketOptionBot,
     ) -> None:
         self.bot = Bot(token=token)
         self.chat_id = chat_id
         self.pocketoption_bot = pocketoption_bot
+        self.symbol_to_message_id = {}
 
     async def execute(
-        self, symbol: str, action: str, expiration_seconds: int, profit_rate: int
+        self, symbol: str, action: str, timeframe: int, profit_rate: int
     ) -> None:
-        entry_time = datetime.now().strftime("%H:%M")
+        entry_time = (datetime.now() + timedelta(seconds=timeframe))
+        entry_time_formatted = entry_time.strftime("%H:%M")
         if action == "call":
             signal = "🟢 CALL UP ⬆️"
         else:
@@ -27,8 +31,8 @@ class TelegramSignalAction(IOrderAction):
 🚧 <b>PREMIUM AI TRADE</b> 🚧
 ——————————————————————————
 📊 {symbol}
-⏰ {entry_time}
-⏳ {seconds_to_formatted_time(expiration_seconds)}
+⏰ {entry_time_formatted}
+⏳ {seconds_to_formatted_time(timeframe)}
 {signal}
 ——————————————————————————
 📈 <b>Trend</b>: Moving Average Crossover
@@ -37,35 +41,15 @@ class TelegramSignalAction(IOrderAction):
         message = await self.bot.send_message(
             chat_id=self.chat_id, text=message, write_timeout=30, parse_mode="HTML"
         )
-        asyncio.create_task(
-            self.check_profits_after(
-                symbol, action, expiration_seconds, message.message_id
-            )
-        )
+        self.symbol_to_message_id[symbol] = message.message_id
 
-    async def check_profits_after(
-        self,
-        symbol: str,
-        action: str,
-        expiration_seconds: int,
-        reply_message_id: int = None,
-    ) -> None:
-        await asyncio.sleep(expiration_seconds)
-        data = await self.pocketoption_bot.fetch_candles(symbol, 2, expiration_seconds_to_timeframe(expiration_seconds))
-        is_profit = False
-        if action == "call":
-            if data["close"].iloc[-1] > data["open"].iloc[-1]:
-                is_profit = True
-            else:
-                is_profit = False
-        else:
-            if data["close"].iloc[-1] < data["open"].iloc[-1]:
-                is_profit = True
-            else:
-                is_profit = False
-
+    async def process_result(self, symbol: str, profit: bool) -> None:
+        message_id = self.symbol_to_message_id.get(symbol)
+        if message_id is None:
+            return
+        
         message = f"🗓️ {symbol} "
-        if is_profit:
+        if profit:
             message += "Profit ✅"
         else:
             message += "Loss ❌"
@@ -74,7 +58,7 @@ class TelegramSignalAction(IOrderAction):
             text=message,
             write_timeout=30,
             parse_mode="HTML",
-            reply_to_message_id=reply_message_id,
+            reply_to_message_id=message_id,
         )
 
 
@@ -100,24 +84,3 @@ def seconds_to_formatted_time(seconds: int) -> str:
         return f"{minutes} {minutes_str}"
     else:
         return f"{sec} {seconds_str}"
-    
-TIMEFRAMES = {
-    60,
-    300,
-    900,
-    1800,
-    3600,
-    14400,
-    86400,
-    604800,
-}
-
-def expiration_seconds_to_timeframe(expiration_seconds: int) -> int:
-    if expiration_seconds in TIMEFRAMES:
-        return expiration_seconds
-    # Find the closest higher timeframe
-    higher_timeframes = [tf for tf in TIMEFRAMES if tf >= expiration_seconds]
-    if higher_timeframes:
-        return min(higher_timeframes)
-    # If no higher timeframe, return the maximum available
-    return max(TIMEFRAMES)
