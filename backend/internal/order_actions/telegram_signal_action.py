@@ -1,17 +1,19 @@
 import asyncio
+import logging
 from datetime import datetime, timedelta
 
 from telegram import Bot
 
 from internal.bot import PocketOptionBot
 from internal.order_actions import IOrderAction
-import logging
-
 
 
 class TelegramSignalAction(IOrderAction):
     def __init__(
-        self, token: str, chat_id: str, pocketoption_bot: PocketOptionBot,
+        self,
+        token: str,
+        chat_id: str,
+        pocketoption_bot: PocketOptionBot,
     ) -> None:
         self.bot = Bot(token=token)
         self.chat_id = chat_id
@@ -21,7 +23,7 @@ class TelegramSignalAction(IOrderAction):
     async def execute(
         self, symbol: str, action: str, timeframe: int, profit_rate: int
     ) -> None:
-        entry_time = (datetime.now() + timedelta(seconds=timeframe))
+        entry_time = datetime.now() + timedelta(seconds=timeframe)
         entry_time_formatted = entry_time.strftime("%H:%M")
         if action == "call":
             signal = "🟢 CALL UP ⬆️"
@@ -47,7 +49,7 @@ class TelegramSignalAction(IOrderAction):
         message_id = self.symbol_to_message_id.get(symbol)
         if message_id is None:
             return
-        
+
         message = f"🗓️ {symbol} "
         if profit:
             message += "Profit ✅"

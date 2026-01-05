@@ -22,17 +22,17 @@ from internal.trading_strategies.moving_average import \
 # symbols and their payouts
 SYMBOLS = {
     "#AAPL_otc": 92,
-    # "#AXP_otc": 50,
-    # "#BA_otc": 88,
-    # "#CSCO_otc": 79,
-    # "#INTC_otc": 56,
-    # "#JNJ_otc": 64,
-    # "#MCD_otc": 75,
-    # "#PFE_otc": 20,
-    # "#TSLA_otc": 92,
-    # "#XOM_otc": 42,
-    # "100GBP_otc": 45,
-    # "AUDCAD_otc": 75,
+    "#AXP_otc": 50,
+    "#BA_otc": 88,
+    "#CSCO_otc": 79,
+    "#INTC_otc": 56,
+    "#JNJ_otc": 64,
+    "#MCD_otc": 75,
+    "#PFE_otc": 20,
+    "#TSLA_otc": 92,
+    "#XOM_otc": 42,
+    "100GBP_otc": 45,
+    "AUDCAD_otc": 75,
     # 'EURUSD_otc': 90 # you can comment out symbols to exclude them
 }
 AMOUNT = 10
@@ -113,7 +113,7 @@ async def main_bot_worker(
 ):
     global bot, bot_running
 
-    bot = PocketOptionBot(AMOUNT)
+    bot = PocketOptionBot(AMOUNT, timeframe, candles_to_check)
     await bot.connect(ssid)
     logger.info("Connected to the PocketOption API")
 
@@ -128,7 +128,12 @@ async def main_bot_worker(
     for symbol, payout in SYMBOLS.items():
         task = asyncio.create_task(
             child_bot_worker(
-                symbol, payout, candles_to_check, timeframe, trading_strategy, order_action_obj
+                symbol,
+                payout,
+                candles_to_check,
+                timeframe,
+                trading_strategy,
+                order_action_obj,
             )
         )
         tasks.append(task)
@@ -156,16 +161,13 @@ async def child_bot_worker(
         try:
             # use mutex lock so one worker accesses the API at a time
             await asyncio.sleep(1)
-            async with rmutex:
-                logger.info(f"[{symbol}] Fetching candles...")
-                data = await bot.fetch_candles(symbol, candles_to_check, timeframe)
+            logger.info(f"[{symbol}] Fetching candles...")
+            data = await bot.fetch_candles(symbol)
         except FetchingCandlesMultipleAttemptsException:
             logger.error(f"[{symbol}] Could not get candles after multiple attempts")
             async with rmutex:
                 await bot.connect(bot.ssid)
             continue
-
-        print(data)
 
         if not bot_running:
             break
@@ -178,7 +180,9 @@ async def child_bot_worker(
             await asyncio.sleep(2)
             continue
         prev_data = data
-        logger.info(f"[{symbol}] Got new candle time {data['time'].iloc[-1]} open {data['open'].iloc[-1]} close {data['close'].iloc[-1]}")
+        logger.info(
+            f"[{symbol}] Got new candle time {data['time'].iloc[-1]} open {data['open'].iloc[-1]} close {data['close'].iloc[-1]}"
+        )
 
         if skip_next_candle:
             skip_next_candle = False
@@ -210,9 +214,7 @@ async def child_bot_worker(
                 # use mutex lock so one worker accesses the API at a time
                 async with wmutex:
                     if not in_trade_cooldown_period:
-                        await order_action.execute(
-                            symbol, action, timeframe, payout
-                        )
+                        await order_action.execute(symbol, action, timeframe, payout)
                         in_trade_cooldown_period = True
                         skip_next_candle = True
                         order_executed = True
@@ -227,12 +229,14 @@ async def child_bot_worker(
                 )
         await asyncio.sleep(1)
 
+
 async def reset_trade_cooldown(timeframe):
     global in_trade_cooldown_period
     logger.info("Starting trade cooldown period")
     await asyncio.sleep(timeframe)  # Cooldown period of expiration seconds
     in_trade_cooldown_period = False
     logger.info("Trade cooldown period ended")
+
 
 @app.post("/start-bot")
 async def start_bot(config: BotConfig, background_tasks: BackgroundTasks):

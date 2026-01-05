@@ -1061,8 +1061,6 @@ class AsyncPocketOptionClient:
 
     async def _on_json_data(self, data: Dict[str, Any]) -> None:
         """Handle detailed order data from JSON bytes messages"""
-        if not isinstance(data, dict):
-            return
         # Check if this is candles data response
         if "candles" in data and isinstance(data["candles"], list):
             # Find the corresponding candle request
@@ -1188,6 +1186,8 @@ class AsyncPocketOptionClient:
                                 f" Order {active_order.order_id} completed via JSON data: {status.value} - Profit: ${profit:.2f}"
                             )
                             await self._emit_event("order_closed", result)
+        else:
+            await self._emit_event("json_data", data)
 
     async def _emit_event(self, event: str, data: Any) -> None:
         """Emit event to registered callbacks"""
