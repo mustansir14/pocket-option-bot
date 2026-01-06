@@ -132,7 +132,7 @@ class PocketOptionBot(IOrderAction):
             if counter == 10:
                 raise ExecutingOrderMultipleAttemptsException("Error executing orders")
 
-    async def process_result(self, symbol: str, profit: bool) -> None:
+    async def process_result(self, symbol: str, profit: bool, martingale: int) -> None:
         return
 
 

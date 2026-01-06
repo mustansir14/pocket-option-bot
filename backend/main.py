@@ -36,6 +36,7 @@ SYMBOLS = {
     # 'EURUSD_otc': 90 # you can comment out symbols to exclude them
 }
 AMOUNT = 10
+MAX_MARTINGALE_ATTEMPTS = 1
 
 app = FastAPI()
 
@@ -154,6 +155,7 @@ async def child_bot_worker(
     prev_data = None
     order_executed = False
     skip_next_candle = False
+    current_martingale_attempt = 0
 
     logger.info(f"[{symbol}] Checking last {candles_to_check} candles...")
 
@@ -200,7 +202,12 @@ async def child_bot_worker(
             logger.info(
                 f'[{symbol}] Candle time {data["time"].iloc[-1]} open {data["open"].iloc[-1]} close {data["close"].iloc[-1]} -> {"profit" if is_profit else "loss"}'
             )
-            await order_action.process_result(symbol, is_profit)
+            if not is_profit:
+                current_martingale_attempt += 1
+                if current_martingale_attempt <= MAX_MARTINGALE_ATTEMPTS:
+                    continue
+                current_martingale_attempt = 0
+            await order_action.process_result(symbol, is_profit, current_martingale_attempt)
             in_trade_cooldown_period = False
             order_executed = False
 

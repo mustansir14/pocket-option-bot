@@ -10,7 +10,7 @@ class IOrderAction(ABC):
         pass
 
     @abstractmethod
-    async def process_result(self, symbol: str, profit: bool) -> None:
+    async def process_result(self, symbol: str, profit: bool, martingale: int) -> None:
         pass
 
 

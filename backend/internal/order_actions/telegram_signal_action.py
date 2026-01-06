@@ -45,7 +45,7 @@ class TelegramSignalAction(IOrderAction):
         )
         self.symbol_to_message_id[symbol] = message.message_id
 
-    async def process_result(self, symbol: str, profit: bool) -> None:
+    async def process_result(self, symbol: str, profit: bool, martingale: int) -> None:
         message_id = self.symbol_to_message_id.get(symbol)
         if message_id is None:
             return
@@ -53,6 +53,8 @@ class TelegramSignalAction(IOrderAction):
         message = f"🗓️ {symbol} "
         if profit:
             message += "Profit ✅"
+            if martingale > 0:
+                message += f" (Martingale {martingale})"
         else:
             message += "Loss ❌"
         await self.bot.send_message(
