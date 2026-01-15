@@ -48,5 +48,5 @@ App should be running on http://localhost:3000
 
 
 
-Use the following tutorial to get SSID:
+Use the following tutorial to get SSID for pocket option:
 [How to Find Your Pocket Option SSID: Step-by-Step Guide](https://www.youtube.com/watch?v=n5YIjVmjIHw)

@@ -9,6 +9,23 @@ from internal.order_actions import IOrderAction
 from pocketoptionapi_async.client import AsyncPocketOptionClient, Candle
 from internal.bots import IBot, InvalidConnectionInfoException
 
+# symbols and their payouts
+POCKETOPTION_SYMBOLS = {
+    "#AAPL_otc": 92,
+    "#AXP_otc": 50,
+    "#BA_otc": 88,
+    "#CSCO_otc": 79,
+    "#INTC_otc": 56,
+    "#JNJ_otc": 64,
+    "#MCD_otc": 75,
+    "#PFE_otc": 20,
+    "#TSLA_otc": 92,
+    "#XOM_otc": 42,
+    "100GBP_otc": 45,
+    "AUDCAD_otc": 75,
+    # 'EURUSD_otc': 90 # you can comment out symbols to exclude them
+}
+
 
 @dataclass
 class ActiveCandle:
@@ -35,6 +52,10 @@ class PocketOptionBot(IBot, IOrderAction):
         self._candles_fetched_lock = asyncio.Lock()
         self.candles_fetched = defaultdict(lambda: False)
         self._active = {}  # symbol -> ActiveCandle
+
+
+    def get_available_symbols_with_payouts(self) -> Dict[str, int]:
+        return POCKETOPTION_SYMBOLS
 
     async def connect(
         self,

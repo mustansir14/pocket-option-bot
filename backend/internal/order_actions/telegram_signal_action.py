@@ -73,7 +73,7 @@ class TelegramSignalAction(IOrderAction):
         if profit:
             result_text = "Profit ✅"
             if martingale > 0:
-                message += f" (Martingale {martingale})"
+                result_text += f" (Martingale {martingale})"
         else:
             # this loss happens after MG1 (attempt=1) in your logic
             result_text = "Loss ☑️"

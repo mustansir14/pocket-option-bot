@@ -1,18 +1,25 @@
 annotated-types==0.7.0
 anyio==4.4.0
+astroid==4.0.3
 certifi==2024.8.30
 charset-normalizer==3.3.2
 click==8.1.7
+dill==0.4.0
 fastapi==0.112.2
 h11==0.16.0
 httpcore==1.0.9
 httpx==0.28.1
 idna==3.8
+iqoptionapi @ https://github.com/iqoptionapi/iqoptionapi/archive/refs/heads/master.zip#sha256=25326cba8e21bc3bb082ab2bd21282f435ce25589d89499a92e1879559c4ca42
+isort==7.0.0
 loguru==0.7.3
+mccabe==0.7.0
 numpy==2.1.0
 pandas==2.2.2
+platformdirs==4.5.1
 pydantic==2.8.2
 pydantic_core==2.20.1
+pylint==4.0.4
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 python-telegram-bot==22.5
@@ -21,9 +28,11 @@ requests==2.32.3
 six==1.16.0
 sniffio==1.3.1
 starlette==0.38.4
+tomlkit==0.14.0
 typing_extensions==4.12.2
 tzdata==2024.1
 tzlocal==5.2
 urllib3==2.2.2
 uvicorn==0.30.6
+websocket-client==0.56.0
 websockets==13.0.1

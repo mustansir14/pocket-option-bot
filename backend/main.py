@@ -13,6 +13,7 @@ from internal.bots.pocketoption_bot import (
     FetchingCandlesMultipleAttemptsException,
     PocketOptionBot,
 )
+from internal.bots.iqoption_bot import IQOptionBot
 from internal.env import Env
 from internal.order_actions import IOrderAction, OrderActionEnum
 from internal.order_actions.telegram_signal_action import TelegramSignalAction
@@ -20,22 +21,8 @@ from internal.trading_strategies import ITradingStrategy, TradingStrategyEnum
 from internal.trading_strategies.last_x_candles import LastXCandlesTradingStrategy
 from internal.trading_strategies.moving_average import MovingAverageTradingStrategy
 
-# symbols and their payouts
-SYMBOLS = {
-    "#AAPL_otc": 92,
-    "#AXP_otc": 50,
-    "#BA_otc": 88,
-    "#CSCO_otc": 79,
-    "#INTC_otc": 56,
-    "#JNJ_otc": 64,
-    "#MCD_otc": 75,
-    "#PFE_otc": 20,
-    "#TSLA_otc": 92,
-    "#XOM_otc": 42,
-    "100GBP_otc": 45,
-    "AUDCAD_otc": 75,
-    # 'EURUSD_otc': 90 # you can comment out symbols to exclude them
-}
+import pandas as pd
+
 AMOUNT = 10
 MAX_MARTINGALE_ATTEMPTS = 1
 
@@ -119,10 +106,12 @@ async def main_bot_worker(
 
     if bot_type == BotEnum.POCKET_OPTION:
         bot = PocketOptionBot(AMOUNT, timeframe, candles_to_check)
+    elif bot_type == BotEnum.IQ_OPTION:
+        bot = IQOptionBot(timeframe, candles_to_check)
     else:
         raise ValueError("Unsupported bot type")
     await bot.connect(connection_info)
-    logger.info("Connected to the PocketOption API")
+    logger.info("Connected to the Bot")
 
     if order_action == OrderActionEnum.EXECUTE_ORDER:
         order_action_obj = bot
@@ -132,7 +121,7 @@ async def main_bot_worker(
         )
 
     tasks = []
-    for symbol, payout in SYMBOLS.items():
+    for symbol, payout in bot.get_available_symbols_with_payouts().items():
         task = asyncio.create_task(
             child_bot_worker(
                 symbol,
@@ -187,6 +176,8 @@ async def child_bot_worker(
             prev_data = data
             await asyncio.sleep(2)
             continue
+
+        data["time_converted"] = pd.to_datetime(data["time"], unit="s")
         prev_data = data
         logger.info(
             f"[{symbol}] Got new candle time {data['time'].iloc[-1]} open {data['open'].iloc[-1]} close {data['close'].iloc[-1]}"

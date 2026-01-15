@@ -14,6 +14,10 @@ class IBot(ABC):
     async def fetch_candles(self, symbol: str) -> pd.DataFrame:
         pass
 
+    @abstractmethod
+    def get_available_symbols_with_payouts(self) -> Dict[str, int]:
+        pass
+
 
 class BotEnum(str, Enum):
     POCKET_OPTION = "POCKET_OPTION"
@@ -25,4 +29,8 @@ class BaseBotException(Exception):
 
 
 class InvalidConnectionInfoException(BaseBotException):
+    pass
+
+
+class BotNotConnectedException(BaseBotException):
     pass
