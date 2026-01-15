@@ -24,6 +24,17 @@ const ORDER_ACTIONS = [
   },
 ];
 
+const BOT_TYPES = [
+  {
+    name: "Pocket Option",
+    value: "POCKET_OPTION",
+  },
+  {
+    name: "IQ Option",
+    value: "IQ_OPTION",
+  },
+];
+
 function App() {
   const [orderAction, setOrderAction] = useState(
     ORDER_ACTIONS[0].value
@@ -31,7 +42,10 @@ function App() {
   const [tradingStrategy, setTradingStrategy] = useState(
     TRADING_STRATEGIES[0].value
   );
+  const [botType, setBotType] = useState(BOT_TYPES[0].value);
   const [ssid, setSsid] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [candlesToCheck, setCandlesToCheck] = useState(7);
   const [timeframe, setTimeframe] = useState(30);
   const [botRunning, setBotRunning] = useState(false);
@@ -55,8 +69,17 @@ function App() {
 
   const startBot = async () => {
     try {
+      // Build connection_info based on bot type
+      let connectionInfo = {};
+      if (botType === "POCKET_OPTION") {
+        connectionInfo = { ssid: ssid };
+      } else if (botType === "IQ_OPTION") {
+        connectionInfo = { username: username, password: password };
+      }
+
       const response = await axios.post(BASE_HTTP_URL + "/start-bot", {
-        ssid,
+        bot_type: botType,
+        connection_info: connectionInfo,
         candles_to_check: candlesToCheck,
         timeframe,
         trading_strategy: tradingStrategy,
@@ -103,14 +126,28 @@ function App() {
         <h1>Pocket Option Bot</h1>
         <div className="input-group">
           <label>
+            Bot Type:
+            <select
+              value={botType}
+              onChange={(e) => setBotType(e.target.value)}
+              disabled={botRunning}
+            >
+              {BOT_TYPES.map((bt) => (
+                <option key={bt.value} value={bt.value}>{bt.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="input-group">
+          <label>
             Order Action
             <select
               value={orderAction}
               onChange={(e) => setOrderAction(e.target.value)}
               disabled={botRunning}
             >
-              {ORDER_ACTIONS.map((ts) => (
-                <option value={ts.value}>{ts.name}</option>
+              {ORDER_ACTIONS.map((oa) => (
+                <option key={oa.value} value={oa.value}>{oa.name}</option>
               ))}
             </select>
           </label>
@@ -124,20 +161,46 @@ function App() {
               disabled={botRunning}
             >
               {TRADING_STRATEGIES.map((ts) => (
-                <option value={ts.value}>{ts.name}</option>
+                <option key={ts.value} value={ts.value}>{ts.name}</option>
               ))}
             </select>
           </label>
         </div>
-        <div className="input-group">
-          <label>SSID</label>
-          <input
-            type="text"
-            value={ssid}
-            onChange={(e) => setSsid(e.target.value)}
-            disabled={botRunning}
-          />
-        </div>
+        
+        {botType === "POCKET_OPTION" && (
+          <div className="input-group">
+            <label>SSID</label>
+            <input
+              type="text"
+              value={ssid}
+              onChange={(e) => setSsid(e.target.value)}
+              disabled={botRunning}
+            />
+          </div>
+        )}
+
+        {botType === "IQ_OPTION" && (
+          <>
+            <div className="input-group">
+              <label>Username</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={botRunning}
+              />
+            </div>
+            <div className="input-group">
+              <label>Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={botRunning}
+              />
+            </div>
+          </>
+        )}
 
         {tradingStrategy === "LAST_X_CANDLES" && (
           <div className="input-group">

@@ -1,23 +1,24 @@
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, root_validator
 
-from internal.bot import (ExecutingOrderMultipleAttemptsException,
-                          FetchingCandlesMultipleAttemptsException,
-                          PocketOptionBot)
+from internal.bots import IBot, BotEnum
+from internal.bots.pocketoption_bot import (
+    ExecutingOrderMultipleAttemptsException,
+    FetchingCandlesMultipleAttemptsException,
+    PocketOptionBot,
+)
 from internal.env import Env
 from internal.order_actions import IOrderAction, OrderActionEnum
 from internal.order_actions.telegram_signal_action import TelegramSignalAction
 from internal.trading_strategies import ITradingStrategy, TradingStrategyEnum
-from internal.trading_strategies.last_x_candles import \
-    LastXCandlesTradingStrategy
-from internal.trading_strategies.moving_average import \
-    MovingAverageTradingStrategy
+from internal.trading_strategies.last_x_candles import LastXCandlesTradingStrategy
+from internal.trading_strategies.moving_average import MovingAverageTradingStrategy
 
 # symbols and their payouts
 SYMBOLS = {
@@ -50,7 +51,7 @@ app.add_middleware(
 )
 
 # Define the bot state and variables
-bot: PocketOptionBot = None
+bot: IBot = None
 bot_running = False
 bot_task = None
 in_trade_cooldown_period = False
@@ -68,7 +69,8 @@ logger.addHandler(console_handler)
 
 
 class BotConfig(BaseModel):
-    ssid: str
+    bot_type: BotEnum
+    connection_info: Dict[str, Any]
     order_action: OrderActionEnum
     trading_strategy: TradingStrategyEnum
     candles_to_check: Optional[int] = None
@@ -106,7 +108,8 @@ wmutex = asyncio.Lock()
 
 
 async def main_bot_worker(
-    ssid: str,
+    bot_type: BotEnum,
+    connection_info: Dict[str, Any],
     candles_to_check: int,
     timeframe: int,
     trading_strategy: ITradingStrategy,
@@ -114,8 +117,11 @@ async def main_bot_worker(
 ):
     global bot, bot_running
 
-    bot = PocketOptionBot(AMOUNT, timeframe, candles_to_check)
-    await bot.connect(ssid)
+    if bot_type == BotEnum.POCKET_OPTION:
+        bot = PocketOptionBot(AMOUNT, timeframe, candles_to_check)
+    else:
+        raise ValueError("Unsupported bot type")
+    await bot.connect(connection_info)
     logger.info("Connected to the PocketOption API")
 
     if order_action == OrderActionEnum.EXECUTE_ORDER:
@@ -207,7 +213,9 @@ async def child_bot_worker(
                 if current_martingale_attempt <= MAX_MARTINGALE_ATTEMPTS:
                     continue
                 current_martingale_attempt = 0
-            await order_action.process_result(symbol, is_profit, current_martingale_attempt)
+            await order_action.process_result(
+                symbol, is_profit, current_martingale_attempt
+            )
             in_trade_cooldown_period = False
             order_executed = False
 
@@ -262,7 +270,8 @@ async def start_bot(config: BotConfig, background_tasks: BackgroundTasks):
     bot_running = True
     bot_task = background_tasks.add_task(
         main_bot_worker,
-        config.ssid,
+        config.bot_type,
+        config.connection_info,
         config.candles_to_check,
         config.timeframe,
         trading_strategy_class,

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from telegram import Bot
 
-from internal.bot import PocketOptionBot
+from internal.bots.pocketoption_bot import PocketOptionBot
 from internal.order_actions import IOrderAction
 
 

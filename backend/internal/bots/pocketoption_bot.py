@@ -1,12 +1,13 @@
 import asyncio
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import List
+from typing import List, Dict, Any
 
 import pandas as pd
 
 from internal.order_actions import IOrderAction
 from pocketoptionapi_async.client import AsyncPocketOptionClient, Candle
+from internal.bots import IBot, InvalidConnectionInfoException
 
 
 @dataclass
@@ -18,7 +19,7 @@ class ActiveCandle:
     close: float
 
 
-class PocketOptionBot(IOrderAction):
+class PocketOptionBot(IBot, IOrderAction):
     def __init__(
         self, order_amount: float = 1.0, timeframe: int = 60, max_candles: int = 100
     ) -> None:
@@ -37,12 +38,17 @@ class PocketOptionBot(IOrderAction):
 
     async def connect(
         self,
-        ssid: str,
+        connection_info: Dict[str, Any],
     ) -> None:
-        self.ssid = ssid
+        if "ssid" not in connection_info:
+            raise InvalidConnectionInfoException("Missing 'ssid' in connection_info")
 
-        is_demo = '"isDemo":1' in ssid
-        self.api = AsyncPocketOptionClient(ssid, is_demo=is_demo, enable_logging=False)
+        self.ssid = connection_info["ssid"]
+
+        is_demo = '"isDemo":1' in self.ssid
+        self.api = AsyncPocketOptionClient(
+            self.ssid, is_demo=is_demo, enable_logging=False
+        )
         while not await self.api.connect():
             await asyncio.sleep(1)
         self.api.add_event_callback("json_data", self.on_tick)
