@@ -1,10 +1,10 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 import time
 
 from iqoptionapi.stable_api import IQ_Option
 import pandas as pd
 
-from internal.bots import IBot, InvalidConnectionInfoException, BotNotConnectedException
+from internal.bots import IBot, InvalidConnectionInfoException, BotNotConnectedException, PayoutNotFoundException
 
 # symbols and their payouts
 IQOPTION_SYMBOLS = {
@@ -45,5 +45,12 @@ class IQOptionBot(IBot):
         )
         return df[:-1]  # exclude the last candle which may be incomplete
     
-    def get_available_symbols_with_payouts(self) -> Dict[str, int]:
-        return IQOPTION_SYMBOLS
+    def get_available_symbols(self) -> List[str]:
+        return list(IQOPTION_SYMBOLS.keys())
+    
+    
+    def get_payout_for_symbol(self, symbol: str) -> int:
+        payout = IQOPTION_SYMBOLS.get(symbol)
+        if payout is None:
+            raise PayoutNotFoundException(f"Payout not found for symbol: {symbol}")
+        return payout

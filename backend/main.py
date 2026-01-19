@@ -121,11 +121,10 @@ async def main_bot_worker(
         )
 
     tasks = []
-    for symbol, payout in bot.get_available_symbols_with_payouts().items():
+    for symbol in bot.get_available_symbols():
         task = asyncio.create_task(
             child_bot_worker(
                 symbol,
-                payout,
                 candles_to_check,
                 timeframe,
                 trading_strategy,
@@ -139,7 +138,6 @@ async def main_bot_worker(
 
 async def child_bot_worker(
     symbol: str,
-    payout: int,
     candles_to_check: int,
     timeframe: int,
     trading_strategy: ITradingStrategy,
@@ -217,6 +215,7 @@ async def child_bot_worker(
                 f'[{symbol}] Executing order action for {"buy" if action == "call" else "sell"}...'
             )
             try:
+                payout = bot.get_payout_for_symbol(symbol)
                 # use mutex lock so one worker accesses the API at a time
                 async with wmutex:
                     if not in_trade_cooldown_period:

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 import pandas as pd
 
@@ -15,7 +15,11 @@ class IBot(ABC):
         pass
 
     @abstractmethod
-    def get_available_symbols_with_payouts(self) -> Dict[str, int]:
+    def get_available_symbols(self) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_payout_for_symbol(self, symbol: str) -> int:
         pass
 
 
@@ -33,4 +37,8 @@ class InvalidConnectionInfoException(BaseBotException):
 
 
 class BotNotConnectedException(BaseBotException):
+    pass
+
+
+class PayoutNotFoundException(BaseBotException):
     pass

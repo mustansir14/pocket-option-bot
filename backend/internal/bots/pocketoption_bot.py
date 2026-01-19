@@ -7,9 +7,10 @@ import pandas as pd
 
 from internal.order_actions import IOrderAction
 from pocketoptionapi_async.client import AsyncPocketOptionClient, Candle
-from internal.bots import IBot, InvalidConnectionInfoException
+from internal.bots import IBot, InvalidConnectionInfoException, PayoutNotFoundException
 
-# symbols and their payouts
+# symbols and their backup payouts
+# backup payouts in case fetching from API fails
 POCKETOPTION_SYMBOLS = {
     "#AAPL_otc": 92,
     "#AXP_otc": 50,
@@ -52,10 +53,11 @@ class PocketOptionBot(IBot, IOrderAction):
         self._candles_fetched_lock = asyncio.Lock()
         self.candles_fetched = defaultdict(lambda: False)
         self._active = {}  # symbol -> ActiveCandle
+        self.symbol_payouts = {}
 
 
-    def get_available_symbols_with_payouts(self) -> Dict[str, int]:
-        return POCKETOPTION_SYMBOLS
+    def get_available_symbols(self) -> List[str]:
+        return list(POCKETOPTION_SYMBOLS.keys())
 
     async def connect(
         self,
@@ -72,16 +74,25 @@ class PocketOptionBot(IBot, IOrderAction):
         )
         while not await self.api.connect():
             await asyncio.sleep(1)
-        self.api.add_event_callback("json_data", self.on_tick)
+        self.api.add_event_callback("json_data", self.on_data)
 
     def _get_candle_timestamp(self, ts: float) -> int:
         return int(ts // self.timeframe * self.timeframe)
 
-    async def on_tick(self, data: list):
-        if len(data) != 1:
+    async def on_data(self, data: list):
+        if len(data) == 1 and len(data[0]) == 3:
+            await self.handle_candles_data(data)
             return
-        if len(data[0]) != 3:
+
+        if len(data) > 1 and len(data[0]) == 19:
+            self.handle_assets_data(data)
             return
+
+    def handle_assets_data(self, data: list):
+        for asset_data in data:
+            self.symbol_payouts[asset_data[1]] = asset_data[5]
+
+    async def handle_candles_data(self, data: list):
         for symbol, ts, price in data:
             candle_ts = self._get_candle_timestamp(ts)
 
@@ -161,6 +172,16 @@ class PocketOptionBot(IBot, IOrderAction):
 
     async def process_result(self, symbol: str, profit: bool, martingale: int) -> None:
         return
+    
+
+    def get_payout_for_symbol(self, symbol: str) -> int:
+        payout = self.symbol_payouts.get(symbol)
+        if payout is None:
+            # fallback to backup payouts
+            payout = POCKETOPTION_SYMBOLS.get(symbol)
+        if payout is None:
+            raise PayoutNotFoundException(f"Payout for symbol {symbol} not found")
+        return payout
 
 
 def candles_to_dataframe(candles: List[Candle]) -> pd.DataFrame:
